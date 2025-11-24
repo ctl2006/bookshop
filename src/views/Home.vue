@@ -49,7 +49,8 @@
 
 </template>
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed , onMounted } from 'vue'
+import request from '@/utils/request'
 
 
 const data = reactive({
@@ -76,7 +77,7 @@ onMounted(() => {
         // 成功了！把后端给的真实书数据，放到页面的tableData里（替换假数据）
         data.tableData = res.data.data
         // 把后端给的“总书数”，放到分页的total里（让分页显示正确页数）
-        pagination.total = res.data.page  // 这里注意：如果后端返回的总条数字段不叫total，就改这里的“total”
+        pagination.total = res.data.total  // 这里注意：如果后端返回的总条数字段不叫total，就改这里的“total”
       } else {
         // 失败了，弹个提示
         alert('系统异常，请稍后重试')

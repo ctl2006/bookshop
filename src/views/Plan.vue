@@ -11,7 +11,7 @@
                 <el-button
                   size="small"
                   type="danger"
-                  @click="handleAdd"
+                  @click="handleDelete"
                 >
                   移除
                 </el-button>
@@ -104,7 +104,8 @@
 
 </template>
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { reactive, computed , onMounted } from 'vue'
+import request from '@/utils/request'
 
 
 const data = reactive({

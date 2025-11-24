@@ -40,8 +40,8 @@
 
 <script setup>
 import { reactive , computed } from 'vue'
-import { useRouter } from 'vue-router'
-const route = useRouter()
+import { useRoute } from 'vue-router'
+const route = useRoute()
 
 
 
