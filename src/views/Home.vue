@@ -12,8 +12,13 @@
 
         <!-- 查询列表开始 -->
         <div class="mt-5">
+        <el-select v-model="data.order" placeholder="Select" style="width: 240px">
+          <el-option :value="0" label="默认排序">默认排序</el-option>
+          <el-option :value="2" label="价格降序">价格降序</el-option>
+          <el-option :value="1" label="价格升序">价格升序</el-option>
+        </el-select>
           <el-table :data="pagedTableData" stripe style="width: 80%">
-            <el-table-column prop="date" label="ID" width="180" />
+            <el-table-column prop="id" label="ID" width="180" />
             <el-table-column prop="name" label="书名" width="180" />
             <el-table-column prop="price" label="价格（元）" />
             <el-table-column prop="operation" label="操作" >
@@ -21,7 +26,7 @@
                 <el-button
                   size="small"
                   type="danger"
-                  @click="handleAdd"
+                  @click="handleAdd(scope)"
                 >
                   加入清单
                 </el-button>
@@ -49,15 +54,19 @@
 
 </template>
 <script setup>
-import { ref, reactive, computed , onMounted } from 'vue'
+import { ref, reactive, computed , onMounted , watch } from 'vue'
 import request from '@/utils/request'
+import { id } from 'element-plus/es/locales.mjs'
 
 
 const data = reactive({
   input: '',
   budget: '',
   radio1: '0',
-  tableData: []
+  order: 0,
+  tableData: [],
+  isSearching: false // 标记是否正在搜索
+
 })
 
 // 分页相关配置
@@ -70,20 +79,45 @@ const pagination = reactive({
 // 页面刚打开时，自动执行这个函数
 onMounted(() => {
   // 调用后端“查所有书”的接口
-  request.get('/get/all?page=1')
+  request.get(`/get/all?sortType=${data.order}`)
     .then(function(res) {
       // 后端返回数据后，先看有没有成功
       if (res.data.code === 200) {
         // 成功了！把后端给的真实书数据，放到页面的tableData里（替换假数据）
-        data.tableData = res.data.data
+        data.tableData = res.data.data.books
         // 把后端给的“总书数”，放到分页的total里（让分页显示正确页数）
-        pagination.total = res.data.total  // 这里注意：如果后端返回的总条数字段不叫total，就改这里的“total”
+        pagination.total = res.data.data.total  
+        // 排序
+        data.order
       } else {
         // 失败了，弹个提示
         alert('系统异常，请稍后重试')
       }
     })
 })
+
+
+// 查询按钮点击事件
+const search = () => {
+  // 标记正在搜索
+  data.isSearching = true
+  // 1. 拿你输入的书名
+  const bookName = data.input
+  // 2. 拿你选的“精确/模糊”（0=精确→对应后端type=0；1=模糊→对应后端type=1）
+  const searchType = data.radio1 === '0' ? 0 : 1
+  const sortType = data.order
+  request.get(`/find?name=${bookName}&type=${searchType}&sortType=${sortType}`)
+    .then(function(res) {
+      if (res.data.code === 200) {
+        // 成功：把查到的书放到tableData里
+        data.tableData = res.data.data.books
+        // 更新分页总条数
+        pagination.total = res.data.data.total
+      } else {
+        alert('系统异常，请稍后重试')
+      }
+    })
+}
 
 // 计算分页后的数据
 const pagedTableData = computed(() => {
@@ -93,26 +127,6 @@ const pagedTableData = computed(() => {
   // 返回当前页的数据
   return data.tableData.slice(startIndex, endIndex)
 })
-
-// 查询按钮点击事件
-const search = () => {
-  // 1. 拿你输入的书名
-  const bookName = data.input
-  // 2. 拿你选的“精确/模糊”（0=精确→对应后端type=0；1=模糊→对应后端type=1）
-  const searchType = data.radio1 === '0' ? 0 : 1
-  // 3. 调用后端“查书名”的接口
-  request.get(`/find?name=${bookName}&type=${searchType}`)
-    .then(function(res) {
-      if (res.data.code === 200) {
-        // 成功：把查到的书放到tableData里
-        data.tableData = res.data.data
-        // 更新分页总条数
-        pagination.total = res.data.total
-      } else {
-        alert('系统异常，请稍后重试')
-      }
-    })
-}
 
 // 加入清单按钮点击事件
 const handleAdd = (scope) => {
@@ -139,6 +153,21 @@ const handleSizeChange = (val) => {
 const handleCurrentChange = (val) => {
   pagination.currentPage = val
 }
+
+watch(() => data.order, () => {
+  if (data.isSearching && data.input.trim()) {
+    // 如果正在搜索，就重新执行搜索（带当前排序）
+    search()
+  } else {
+    // 否则才是查全部
+    request.get(`/get/all?sortType=${data.order}`).then(res => {
+      if (res.data.code === 200) {
+        data.tableData = res.data.data.books
+        pagination.total = res.data.data.total
+      }
+    })
+  }
+})
 </script>
 <style lang="">
   
