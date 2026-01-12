@@ -27,6 +27,7 @@
                   size="small"
                   type="danger"
                   @click="handleAdd(scope)"
+                  :disabled="isInShopcart(scope.row.id)"
                 >
                   加入清单
                 </el-button>
@@ -65,8 +66,8 @@ const data = reactive({
   radio1: '0',
   order: 0,
   tableData: [],
-  isSearching: false // 标记是否正在搜索
-
+  isSearching: false, // 标记是否正在搜索
+  addedBookIds: [], // 购物车里的书的ID列表
 })
 
 // 分页相关配置
@@ -78,23 +79,42 @@ const pagination = reactive({
 
 // 页面刚打开时，自动执行这个函数
 onMounted(() => {
-  // 调用后端“查所有书”的接口
-  request.get(`/get/all?sortType=${data.order}`)
-    .then(function(res) {
-      // 后端返回数据后，先看有没有成功
-      if (res.data.code === 200) {
-        // 成功了！把后端给的真实书数据，放到页面的tableData里（替换假数据）
-        data.tableData = res.data.data.books
-        // 把后端给的“总书数”，放到分页的total里（让分页显示正确页数）
-        pagination.total = res.data.data.total  
-        // 排序
-        data.order
-      } else {
-        // 失败了，弹个提示
-        alert('系统异常，请稍后重试')
+  // 先获取购物清单数据，提取已加入的书籍ID
+  request.get(`/shopcart/get?sortType=${data.order}`)
+    .then(shopcartRes => {
+      if (shopcartRes.data.code === 200) {
+        // 提取所有购物清单中书籍的ID
+        data.addedBookIds = shopcartRes.data.data.books.map(book => book.id)
       }
     })
+    .catch(err => {
+      console.log('获取购物清单失败', err)
+    })
+    .finally(() => {
+      // 无论购物清单是否获取成功，都加载所有书籍
+      // 调用后端“查所有书”的接口
+      request.get(`/get/all?sortType=${data.order}`)
+        .then(function(res) {
+          // 后端返回数据后，先看有没有成功
+          if (res.data.code === 200) {
+            // 成功了！把后端给的真实书数据，放到页面的tableData里（替换假数据）
+            data.tableData = res.data.data.books
+            // 把后端给的“总书数”，放到分页的total里（让分页显示正确页数）
+            pagination.total = res.data.data.total  
+            // 排序
+            data.order
+          } else {
+            // 失败了，弹个提示
+            alert('系统异常，请稍后重试')
+          }
+        })
+    })
 })
+
+// 判断书籍是否已加入购物清单
+const isInShopcart = (bookId) => {
+  return data.addedBookIds.includes(bookId)
+}
 
 
 // 查询按钮点击事件
@@ -137,6 +157,8 @@ const handleAdd = (scope) => {
     .then(function(res) {
       if (res.data.code === 200) {
         alert('加入清单成功')
+        // 将刚加入的书籍ID添加到数组，实时禁用按钮
+        data.addedBookIds.push(bookId)
       } else {
         alert('系统异常，请稍后重试')
       }
